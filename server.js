@@ -14,7 +14,7 @@ app.use((req, res, next) => {
 });
 
 const userSocketMap = {};
-// Store messages for each room
+// Add this storage for room messages
 const roomMessages = {};
 
 function getAllConnectedClients(roomId) {
@@ -41,13 +41,12 @@ io.on('connection', (socket) => {
             roomMessages[roomId] = [];
         }
         
-        const clients = getAllConnectedClients(roomId);
-        
-        // Send previous messages to the newly joined user
+        // Send message history to the new user
         socket.emit(ACTIONS.CHAT_HISTORY, {
             messages: roomMessages[roomId]
         });
         
+        const clients = getAllConnectedClients(roomId);
         clients.forEach(({ socketId }) => {
             io.to(socketId).emit(ACTIONS.JOINED, {
                 clients,
@@ -65,7 +64,7 @@ io.on('connection', (socket) => {
         io.to(socketId).emit(ACTIONS.CODE_CHANGE, { code });
     });
 
-    // Enhanced handler for chat messages with persistence
+    // Updated handler for chat messages with persistence
     socket.on(ACTIONS.SEND_MESSAGE, ({ roomId, message }) => {
         // Create a message object with sender info and timestamp
         const messageObj = {
@@ -78,14 +77,9 @@ io.on('connection', (socket) => {
         // Store the message in room history
         if (roomMessages[roomId]) {
             roomMessages[roomId].push(messageObj);
-            
-            // Optional: Limit message history (e.g., keep last 100 messages)
-            if (roomMessages[roomId].length > 100) {
-                roomMessages[roomId].shift();
-            }
         }
         
-        // Broadcast to everyone in the room (including sender for consistency)
+        // Broadcast to everyone in the room
         io.in(roomId).emit(ACTIONS.RECEIVE_MESSAGE, messageObj);
     });
 
@@ -101,8 +95,6 @@ io.on('connection', (socket) => {
         socket.leave();
     });
 });
-
-
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Listening on port ${PORT}`));

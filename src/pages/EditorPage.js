@@ -11,55 +11,10 @@ import {
     useParams,
 } from 'react-router-dom';
 
-
-// New Chat component
-
-const Chat = ({ socketRef, roomId, username }) => {
-    const [messages, setMessages] = useState([]);
+// Updated Chat component that receives messages as props
+const Chat = ({ socketRef, roomId, username, messages, setMessages }) => {
     const [messageInput, setMessageInput] = useState('');
     const chatContainerRef = useRef(null);
-
-    useEffect(() => {
-        if (socketRef.current) {
-            // Listen for chat history when joining a room
-            socketRef.current.on(ACTIONS.CHAT_HISTORY, ({ messages: historyMessages }) => {
-                // Format the history messages
-                const formattedMessages = historyMessages.map(msg => ({
-                    content: msg.content,
-                    sender: msg.sender,
-                    time: new Date(msg.timestamp).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    }),
-                    self: msg.senderId === socketRef.current.id
-                }));
-                
-                setMessages(formattedMessages);
-            });
-
-            // Listen for new messages
-            socketRef.current.on(ACTIONS.RECEIVE_MESSAGE, (msg) => {
-                const formattedMessage = {
-                    content: msg.content,
-                    sender: msg.sender,
-                    time: new Date(msg.timestamp).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    }),
-                    self: msg.senderId === socketRef.current.id
-                };
-                
-                setMessages((prev) => [...prev, formattedMessage]);
-            });
-        }
-
-        return () => {
-            if (socketRef.current) {
-                socketRef.current.off(ACTIONS.RECEIVE_MESSAGE);
-                socketRef.current.off(ACTIONS.CHAT_HISTORY);
-            }
-        };
-    }, [socketRef.current]);
 
     // Auto scroll to bottom when new messages arrive
     useEffect(() => {
@@ -118,8 +73,6 @@ const Chat = ({ socketRef, roomId, username }) => {
     );
 };
 
-
-
 const EditorPage = () => {
     const socketRef = useRef(null);
     const codeRef = useRef(null);
@@ -128,6 +81,9 @@ const EditorPage = () => {
     const reactNavigator = useNavigate();
     const [clients, setClients] = useState([]);
     const [showChat, setShowChat] = useState(false);
+    
+    // Add state for messages here in EditorPage
+    const [messages, setMessages] = useState([]);
 
     useEffect(() => {
         const init = async () => {
@@ -174,12 +130,48 @@ const EditorPage = () => {
                     });
                 }
             );
+            
+            // Add chat message handlers here
+            // Listen for chat history when joining a room
+            socketRef.current.on(ACTIONS.CHAT_HISTORY, ({ messages: historyMessages }) => {
+                if (historyMessages && Array.isArray(historyMessages)) {
+                    // Format the history messages
+                    const formattedMessages = historyMessages.map(msg => ({
+                        content: msg.content,
+                        sender: msg.sender,
+                        time: new Date(msg.timestamp).toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        }),
+                        self: msg.senderId === socketRef.current.id
+                    }));
+                    
+                    setMessages(formattedMessages);
+                }
+            });
+
+            // Listen for new messages
+            socketRef.current.on(ACTIONS.RECEIVE_MESSAGE, (msg) => {
+                const formattedMessage = {
+                    content: msg.content,
+                    sender: msg.sender,
+                    time: new Date(msg.timestamp).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    }),
+                    self: msg.senderId === socketRef.current.id
+                };
+                
+                setMessages((prev) => [...prev, formattedMessage]);
+            });
         };
         init();
         return () => {
             socketRef.current.disconnect();
             socketRef.current.off(ACTIONS.JOINED);
             socketRef.current.off(ACTIONS.DISCONNECTED);
+            socketRef.current.off(ACTIONS.RECEIVE_MESSAGE);
+            socketRef.current.off(ACTIONS.CHAT_HISTORY);
         };
     }, []);
 
@@ -254,6 +246,8 @@ const EditorPage = () => {
                         socketRef={socketRef}
                         roomId={roomId}
                         username={location.state?.username}
+                        messages={messages}
+                        setMessages={setMessages}
                     />
                 </div>
             )}
